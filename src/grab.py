@@ -8,11 +8,14 @@ import random
 import torch
 from TTS.api import TTS
 from better_profanity import profanity
+import sys
+import gc
 
 
 class CreateTTS:
 
-    def __init__(self, URL='https://www.reddit.com/r/tifu/comments/16uqfkl/tifu_by_stalking_my_husbands_reddit_account.json'):
+    def __init__(self, URL):
+        URL = URL.strip("/.json") + ".json"
 
         # Set Coqui TTS
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -33,7 +36,7 @@ class CreateTTS:
         self.author = postData['author']
         self.subreddit = postData['subreddit_name_prefixed']
         self.score = postData['score']
-        self.text = profanity.censor(postData['selftext'])
+        self.text = postData['selftext'].replace("&amp;", "")
 
     # def createTTS(script, audioFile, voice):
     #     set_api_key(os.getenv('ELEVEN_API_KEY'))
@@ -79,6 +82,10 @@ class CreateTTS:
             .filter("subtitles", filename=srtPath, fontsdir=fonts_dir, force_style=style)
 
         )
+
+        video = ffmpeg.filter([video, ffmpeg.input(
+            'src/files/title.png')], 'overlay', enable=f"between(t,0,{self.titleLength})")
+
         audio = ffmpeg.input(audioFile)
         ffmpeg.concat(video, audio, v=1, a=1).output(
             outPath).run(overwrite_output=True)
@@ -92,20 +99,35 @@ class CreateTTS:
 
     def createParts(self):
         chars_per_video = 3500
-        parts = int(len(self.title + self.text) / chars_per_video) + 1
-        characters_per_part = int(len(self.title+self.text)/parts)
+        parts = int(len(self.text) / chars_per_video) + 1
+        characters_per_part = int(len(self.text)/parts)
 
-        for part in range(parts):
-            print(f'Creating Video Part{part}')
-            self.createTTS(self.text[part*characters_per_part:(part+1) *
-                           characters_per_part], f'src/files/audio{part}.mp3')
+        # self.createTTS(self.title, 'src/files/title.mp3')
+
+        print("Created TTS for Title")
+        self.titleLength = self.getAudioDuration('src/files/title.mp3')
+
+        # for part in range(parts):
+        #     print(f'Creating Video Part{part}')
+        #     self.createTTS(self.text[part*characters_per_part:(part+1) *
+        #                              characters_per_part], f'src/files/audio{part}.mp3')
+
+        #     ffmpeg.concat(ffmpeg.input('src/files/title.mp3'), ffmpeg.input(
+        #         f'src/files/audio{part}.mp3'), v=0, a=1).output(f'src/files/audio{part}c.mp3').run(overwrite_output=True)
+
+        sys.modules.pop('TTS.api')
+        sys.modules.pop('TTS')
+
+        del self.tts
+        gc.collect()
         torch.cuda.empty_cache()
+
         self.model = WhisperModel(
             "medium", device="cpu", compute_type="int8")
         for part in range(parts):
-            print('before breaking')
+            print(f'Creating Captions Part{part}')
             segments, _ = self.model.transcribe(
-                f"src/files/audio{part}.mp3",
+                f"src/files/audio{part}c.mp3",
                 word_timestamps=True,
             )
             print('after breaking')
@@ -115,8 +137,9 @@ class CreateTTS:
                 for segment in segments:
                     for word in segment.words:
                         f.write(
-                            f'{i}\n{self.formatSeconds(word.start)} --> {self.formatSeconds(word.end)}\n{word.word.strip(" ")}\n\n')
+                            f'{i}\n{self.formatSeconds(word.start)} --> {self.formatSeconds(word.end)}\n{profanity.censor(word.word.strip(" "))}\n\n')
                         i += 1
 
+            print(f'Stitching Everything Together Part{part}')
             self.formatVideo('src/files/subwaysurfers3M.mp4',
                              f'src/files/TTS{part}.mp4', f'src/files/subtitles{part}.srt', f'src/files/audio{part}.mp3')
