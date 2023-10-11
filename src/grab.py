@@ -190,7 +190,7 @@ class CreateTTS:
         #                              characters_per_part], f'src/files/TTS/audio{part}.mp3')
 
         #     ffmpeg.concat(ffmpeg.input('src/files/TTS/title.mp3'), ffmpeg.input(
-        #         f'src/files/TTS/audio{part}.mp3'), v=0, a=1).output(f'src/files/TTS/audio{part}c.mp3').run(overwrite_output=True)
+        #         f'src/files/TTS/audio{part}.mp3').filter_('atempo','1.1'), v=0, a=1).output(f'src/files/TTS/audio{part}c.mp3').run(overwrite_output=True)
 
         for part in range(parts):
             # print(f'Creating Captions Part{part}')
