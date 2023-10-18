@@ -1,0 +1,6 @@
+src/create_audio.py
+src/test_mode.py
+src/files/*
+src/.env
+!src/files/font
+!src/files/images

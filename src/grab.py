@@ -15,8 +15,8 @@ from tiktok_uploader.auth import AuthBackend
 
 class CreateTTS:
 
-    def __init__(self, URL):
-        self.URL = URL.strip("/.json") + ".json"
+    def __init__(self, URL, title=None, text=None):
+        self.URL = URL.strip("/.json") + ".json?sort=top"
         self.accountID = 17841462676420553
         self.accessToken = 'EAAmVIPsZBZBg8BO66gu7uCamiP2Dp5jYc1yLqts0OZBl5vfmm009uQE88cYYyHd7kvSpgc6Y3UvZCTFxYVKClEEB4dZBqpKv3HmHoaMiGwrJwhmT1qeR6ZAZAWYPE2ftKe4liCeCa3BOvyeYZAiRvp56AThMfnQELVSXBpcmiY4k1SBZC7Dyc4NNCKFyjmMNaAH6f'
 
@@ -37,12 +37,26 @@ class CreateTTS:
         post, comments = res_json
         postData = post['data']['children'][0]['data']
 
-        self.title = postData['title']
+        self.title = postData['title'].replace(
+            "&amp;", "").replace("#x200B", "").replace(";", ".").replace(":", ".").replace("shit", "shite").replace("fuck", "fudge").replace("sex", "seggs").replace("cum", "coom").replace("..", ".") if not title else title
         self.author = postData['author']
         self.subreddit = postData['subreddit_name_prefixed']
         self.score = postData['score']
-        self.text = postData['selftext'].replace(
-            "&amp;", "").replace("#x200B", "").replace(";", ".").replace(":", ".").replace("shit", "shite").replace("fuck", "fudge").replace("sex", "seggs").replace("cum", "coom")
+        self.text = ""
+        if self.subreddit == "r/AskReddit":
+            for comment in comments['data']['children']:
+                if len(self.text) + len(comment['data']['body'].replace(
+                        "&amp;", "").replace("#x200B", "").replace(";", ".").replace(":", ".").replace("shit", "shite").replace("fuck", "fudge").replace("sex", "seggs").replace("cum", "coom") + " ").replace("..", ".") < 3000:
+                    self.text += comment['data']['body'].replace(
+                        "&amp;", "").replace("#x200B", "").replace(";", ".").replace(":", ".").replace("shit", "shite").replace("fuck", "fudge").replace("sex", "seggs").replace("cum", "coom").replace("..", ".") + " "
+                else:
+                    break
+        else:
+            self.text = postData['selftext'].replace(
+                "&amp;", "").replace("#x200B", "").replace(";", ".").replace(":", ".").replace("shit", "shite").replace("fuck", "fudge").replace("sex", "seggs").replace("cum", "coom")
+
+        self.text = self.text if not text else text
+        print(self.text)
 
     def createTTS(self, script, audioFile):
         response = self.client.synthesize_speech(
@@ -162,7 +176,7 @@ class CreateTTS:
             file_path = os.path.join(f'{path}src/files', filename)
             if os.path.isfile(file_path) and os.path.splitext(filename)[0][:3] == 'TTS' and os.path.splitext(filename)[-1].lower() == '.mp4':
                 vids.append({'path': f'src/files/{filename}',
-                            'description': self.title + " #fyp #reddit #redditstories #redditreadings #aita #tifu #subwaysurfers #askreddit #minecraftparkour"})
+                            'description': self.title + " #fyp #reddit #redditstories #redditreadings #aita #tifu #minecraft #askreddit #minecraftparkour "})
                 # self.s3_client.upload_file(
                 #     f'src/files/{filename}', 'wwz4-polly-bucket', f'TTS/{filename}')
 
@@ -173,57 +187,61 @@ class CreateTTS:
                 # self.post_reel(filename)
 
         auth = AuthBackend(cookies='src/cookies.txt')
-        upload_videos(videos=vids, auth=auth, headless=True)
+        upload_videos(videos=vids, auth=auth)
 
     def createParts(self):
-        chars_per_video = 3000
-        parts = int(len(self.text) / chars_per_video) + 1
+        if self.subreddit == "r/AskReddit":
+            parts = 1
+        else:
+            chars_per_video = 3000
+            parts = int(len(self.text) / chars_per_video) + 1
+
         characters_per_part = int(len(self.text)/parts)
 
-        # self.createTTS(self.title, 'src/files/TTS/title.mp3')
+        self.createTTS(self.title, 'src/files/TTS/title.mp3')
         print("Created TTS for Title")
         self.titleLength = self.getAudioDuration('src/files/TTS/title.mp3')
 
-        # for part in range(parts):
-        #     print(f'Creating Audio Part{part}')
-        #     self.createTTS(self.text[part*characters_per_part:(part+1) *
-        #                              characters_per_part], f'src/files/TTS/audio{part}.mp3')
+        for part in range(parts):
+            print(f'Creating Audio Part{part}')
+            self.createTTS(self.text[part*characters_per_part:(part+1) *
+                                     characters_per_part], f'src/files/TTS/audio{part}.mp3')
 
-        #     ffmpeg.concat(ffmpeg.input('src/files/TTS/title.mp3'), ffmpeg.input(
-        #         f'src/files/TTS/audio{part}.mp3'), v=0, a=1).output(f'src/files/TTS/audio{part}c.mp3').run(overwrite_output=True)
+            ffmpeg.concat(ffmpeg.input('src/files/TTS/title.mp3'), ffmpeg.input(
+                f'src/files/TTS/audio{part}.mp3').filter_('atempo', '1.2'), v=0, a=1).output(f'src/files/TTS/audio{part}c.mp3').run(overwrite_output=True)
 
         for part in range(parts):
-            # print(f'Creating Captions Part{part}')
-            # segments, _ = self.model.transcribe(
-            #     f"src/files/TTS/audio{part}c.mp3",
-            #     word_timestamps=True,
-            # )
-            # print('after breaking')
+            print(f'Creating Captions Part{part}')
+            segments, _ = self.model.transcribe(
+                f"src/files/TTS/audio{part}c.mp3",
+                word_timestamps=True,
+            )
+            print('after breaking')
 
-            # with open(f"src/files/subtitles/subtitles{part}.srt", "w") as f:
-            #     words = []
-            #     for segment in segments:
-            #         for word in segment.words:
-            #             if word.start >= self.titleLength:
-            #                 if not words or words[-1][1] - words[-1][0] >= 0.5:
-            #                     words.append(
-            #                         [word.start, word.end, [profanity.censor(word.word.strip(" "))]])
-            #                 else:
-            #                     words[-1][1] = word.end
-            #                     words[-1][2].append(
-            #                         profanity.censor(word.word.strip(" ")))
-            #     for i, phrase in enumerate(words):
-            #         f.write(
-            #             f'{i+1}\n{self.formatSeconds(max(0,phrase[0] - 0.2))} --> {self.formatSeconds(phrase[1]-0.2)}\n{" ".join(phrase[2])}\n\n')
+            with open(f"src/files/subtitles/subtitles{part}.srt", "w") as f:
+                words = []
+                for segment in segments:
+                    for word in segment.words:
+                        if word.start >= self.titleLength:
+                            if not words or words[-1][1] - words[-1][0] >= 0.5:
+                                words.append(
+                                    [word.start, word.end, [word.word.strip(" ")]])
+                            else:
+                                words[-1][1] = word.end
+                                words[-1][2].append(
+                                    profanity.censor(word.word.strip(" ")))
+                for i, phrase in enumerate(words):
+                    f.write(
+                        f'{i+1}\n{self.formatSeconds(max(0,phrase[0] - 0.2))} --> {self.formatSeconds(phrase[1]-0.2)}\n{" ".join(phrase[2])}\n\n')
 
             print(f'Stitching Everything Together Part{part}')
             self.formatVideo('src/files/background/parkour.mp4',
                              f'src/files/TTS{part}.mp4', f'src/files/subtitles/subtitles{part}.srt', f'src/files/TTS/audio{part}c.mp3', part+1)
 
 
-URL = 'https://www.reddit.com/r/pettyrevenge/comments/qr60h1/you_dont_like_your_boyfriend_seeing_me_braless_in/'
-h = CreateTTS(URL)
-part = 0
-# h.removeExtraneousTTS()
+URL = 'https://www.reddit.com/r/TrueOffMyChest/comments/176cgm4/my_wife_told_my_ap_id_rather_be_80_year_old_me/'
+h = CreateTTS(
+    URL, "My wife told my girlfriend “I’d rather be 80 year old me than 20 year old you” and it haunts me every day")
+h.removeExtraneousTTS()
 h.createParts()
-# h.uploadVideos()
+h.uploadVideos()

@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "redditbot"
+version = "0.1.0"
+description = ""
+authors = ["William Zhou <william.zhou@duke.edu>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+faster-whisper = "^0.9.0"
+numpy = "1.24"
+ffmpeg-python = "^0.2.0"
+better-profanity = "^0.7.0"
+pillow = "^10.0.1"
+elevenlabs = "^0.2.26"
+dotenv-python = "^0.0.1"
+boto3 = "^1.28.62"
+tiktok-uploader = {git = "https://github.com/wkaisertexas/tiktok-uploader.git"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
