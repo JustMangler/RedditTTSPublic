@@ -24,15 +24,5 @@ poetry env info
 
 ```sh
 poetry shell
-python -m app
+python -m grab
 ```
-
-### Production
-
-```sh
-./start.sh
-```
-
-## Structure
-
-TODO
